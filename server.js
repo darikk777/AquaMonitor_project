@@ -289,7 +289,8 @@ app.get("/data", async (req, res) => {
 });
 
 // === ЗАПУСК ===
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
+console.log(`SERVER WILL USE PORT: ${PORT}`);
 
 app.listen(PORT, async () => {
   console.log("\n" + "=".repeat(50));
