@@ -1,4 +1,4 @@
-// server.js - ВЕРСИЯ С SHARP (исправленная)
+// server.js - ВЕРСИЯ С SHARP (с поддержкой переменной окружения для Firebase)
 import express from "express";
 import multer from "multer";
 import * as tf from "@tensorflow/tfjs";
@@ -13,23 +13,54 @@ import cors from "cors";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// === FIREBASE ===
-const firebaseKeyPath = join(__dirname, "firebase-key.json");
-if (!fs.existsSync(firebaseKeyPath)) {
-  console.error("❌ Файл firebase-key.json не найден!");
-  process.exit(1);
-}
+// === FIREBASE (поддержка переменной окружения для Railway) ===
+let db;
 
-try {
-  const serviceAccount = JSON.parse(fs.readFileSync(firebaseKeyPath, 'utf8'));
-  admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-  console.log("✅ Firebase инициализирован");
-} catch (error) {
-  console.error("❌ Ошибка Firebase:", error.message);
-  process.exit(1);
+if (process.env.FIREBASE_KEY) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
+    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    console.log("✅ Firebase инициализирован из переменной окружения");
+    db = admin.firestore();
+  } catch (error) {
+    console.error("❌ Ошибка Firebase из переменной:", error.message);
+    process.exit(1);
+  }
+} else {
+  const firebaseKeyPath = join(__dirname, "firebase-key.json");
+  if (!fs.existsSync(firebaseKeyPath)) {
+    console.error("❌ Файл firebase-key.json не найден и нет переменной FIREBASE_KEY!");
+    console.error("⚠️ Сервер будет работать без Firebase (данные не будут сохраняться)");
+    // Создаём заглушку для db, чтобы сервер не падал
+    db = {
+      collection: () => ({
+        add: async (data) => {
+          console.log("💾 (заглушка) Данные не сохранены, Firebase не настроен");
+          return { id: "mock-" + Date.now() };
+        },
+        orderBy: () => ({
+          limit: () => ({
+            get: async () => ({
+              forEach: () => {},
+              empty: true,
+              docs: []
+            })
+          })
+        })
+      })
+    };
+  } else {
+    try {
+      const serviceAccount = JSON.parse(fs.readFileSync(firebaseKeyPath, 'utf8'));
+      admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+      console.log("✅ Firebase инициализирован из файла");
+      db = admin.firestore();
+    } catch (error) {
+      console.error("❌ Ошибка Firebase из файла:", error.message);
+      process.exit(1);
+    }
+  }
 }
-
-const db = admin.firestore();
 
 // === КЛАССЫ ===
 const CLASSES = ["red", "orange", "yellow", "green"];
