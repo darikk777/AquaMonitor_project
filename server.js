@@ -1,8 +1,8 @@
-// server.js - ПОЛНОСТЬЮ РАБОЧАЯ ВЕРСИЯ
+// server.js - ВЕРСИЯ С SHARP
 import express from "express";
 import multer from "multer";
 import * as tf from "@tensorflow/tfjs";
-import { createCanvas, loadImage } from "canvas";
+import sharp from "sharp";
 import admin from "firebase-admin";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -59,7 +59,6 @@ if (fs.existsSync(modelDir)) {
 }
 
 // === ВРЕМЕННАЯ МОДЕЛЬ (ЗАГЛУШКА) ===
-// Пока не можем загрузить Teachable Machine, используем простую модель
 let model = null;
 let modelLoaded = false;
 
@@ -78,7 +77,6 @@ async function createDummyModel() {
     const data = await w.data();
     const newData = new Float32Array(data.length);
     if (w.shape[1] === 4) {
-      // bias или weights - делаем так, чтобы green был самым большим
       for (let i = 0; i < newData.length; i++) {
         newData[i] = i % 4 === 3 ? 10 : 1;
       }
@@ -96,23 +94,24 @@ async function createDummyModel() {
   modelLoaded = true;
 }
 
-// === ПРЕОБРАЗОВАНИЕ ФОТО ===
+// === ПРЕОБРАЗОВАНИЕ ФОТО (SHARP ВЕРСИЯ) ===
 async function imageToTensor(imagePath) {
-  const image = await loadImage(imagePath);
-  const canvas = createCanvas(96, 96);
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(image, 0, 0, 96, 96);
+  // Читаем изображение, изменяем размер до 96x96, переводим в оттенки серого
+  const { data, info } = await sharp(imagePath)
+    .resize(96, 96)
+    .grayscale()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
   
-  const imageData = ctx.getImageData(0, 0, 96, 96);
-  const { data } = imageData;
-  
-  const grayscaleData = [];
-  for (let i = 0; i < data.length; i += 4) {
-    const gray = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) / 255;
-    grayscaleData.push(gray);
+  // data - это буфер с пикселями (0-255), info.width = 96, info.height = 96
+  // Нормализуем значения от 0 до 1
+  const normalizedData = new Float32Array(data.length);
+  for (let i = 0; i < data.length; i++) {
+    normalizedData[i] = data[i] / 255;
   }
   
-  let tensor = tf.tensor3d(grayscaleData, [96, 96, 1]);
+  // Создаем тензор с формой [96, 96, 1]
+  let tensor = tf.tensor3d(normalizedData, [96, 96, 1]);
   tensor = tensor.expandDims(0);
   return tensor;
 }
