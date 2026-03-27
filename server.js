@@ -1,4 +1,4 @@
-// server.js - ВЕРСИЯ С SHARP
+// server.js - ВЕРСИЯ С SHARP (исправленная)
 import express from "express";
 import multer from "multer";
 import * as tf from "@tensorflow/tfjs";
@@ -125,6 +125,22 @@ function checkModel(req, res, next) {
 }
 
 // === ЭНДПОИНТЫ ===
+
+// ✅ ДОБАВЛЕН КОРНЕВОЙ ПУТЬ (чтобы сайт отвечал)
+app.get("/", (req, res) => {
+  res.json({
+    status: "ok",
+    message: "AquaMonitor Server is running",
+    endpoints: {
+      health: "/health",
+      analyze: "/analyze (POST with photo)",
+      data: "/data",
+      modelStatus: "/model-status"
+    },
+    timestamp: Date.now()
+  });
+});
+
 app.get("/health", (req, res) => {
   res.json({ status: "ok", modelLoaded, timestamp: Date.now() });
 });
@@ -256,6 +272,7 @@ app.listen(PORT, async () => {
   
   console.log("\n✅ СЕРВЕР ГОТОВ К РАБОТЕ!");
   console.log("\n📊 Доступные эндпоинты:");
+  console.log(`   GET  /           - Информация о сервере`);
   console.log(`   GET  /health     - Проверка состояния`);
   console.log(`   POST /analyze    - Анализ фото`);
   console.log(`   GET  /data       - Получение данных`);
