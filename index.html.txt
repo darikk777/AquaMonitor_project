@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AquaMonitor — Карта</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f5f7fa;
+            color: #1f2937;
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+            display: flex;
+            align-items: center;
+            padding: 16px 24px;
+            background: #ffffff;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: bold;
+            margin-right: 40px;
+        }
+
+        .nav a {
+            margin-right: 20px;
+            text-decoration: none;
+            color: #4b5563;
+            font-size: 16px;
+        }
+
+        .nav a.active {
+            font-weight: bold;
+            color: #111827;
+        }
+
+        /* ===== CONTENT ===== */
+        .container {
+            padding: 24px;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 16px;
+        }
+
+        /* ===== STATS ===== */
+        .stats {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            flex: 1;
+            background: #ffffff;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+
+        .card span {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .card p {
+            margin: 6px 0 0;
+            color: #6b7280;
+        }
+
+        /* ===== MAP ===== */
+        #map {
+            width: 100%;
+            height: 500px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            text-align: center;
+            padding: 14px;
+            font-size: 14px;
+            color: #6b7280;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+
+<header class="header">
+    <div class="logo">AquaMonitor</div>
+    <nav class="nav">
+        <a href="index.html" class="active">Карта</a>
+        <a href="graphs.html">Графики</a>
+        <a href="community.html">Сообщество</a>
+        <a href="info.html">Информация</a>
+    </nav>
+</header>
+
+<main class="container">
+    <h1>Интерактивная карта качества воды</h1>
+
+    <div class="stats">
+        <div class="card">
+            <span id="total-points">--</span>
+            <p>Точек мониторинга</p>
+        </div>
+        <div class="card">
+            <span id="avg-index">--</span>
+            <p>Средний индекс</p>
+        </div>
+        <div class="card">
+            <span id="critical-count">--</span>
+            <p>Критических точек</p>
+        </div>
+    </div>
+
+    <div id="map"></div>
+</main>
+
+<footer class="footer">
+    © 2026 AquaMonitor. Все права защищены.
+</footer>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+    const SERVER_URL = "https://your-server.example.com/api/points";
+
+    const map = L.map("map").setView([51.1, 69.3], 6);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap"
+    }).addTo(map);
+
+    async function loadData() {
+        try {
+            const response = await fetch(SERVER_URL);
+            const points = await response.json();
+
+            updateStats(points);
+            drawMarkers(points);
+
+        } catch (e) {
+            console.error("Ошибка загрузки данных", e);
+        }
+    }
+
+    function updateStats(points) {
+        document.getElementById("total-points").textContent = points.length;
+
+        const avgIndex = (
+            points.reduce((s, p) => s + p.pollutionIndex, 0) / points.length
+        ).toFixed(2);
+
+        document.getElementById("avg-index").textContent = avgIndex;
+
+        document.getElementById("critical-count").textContent =
+            points.filter(p => p.pollutionIndex >= 7.5).length;
+    }
+
+    function drawMarkers(points) {
+        points.forEach(p => {
+            L.circleMarker([p.lat, p.lng], {
+                radius: 8,
+                color: "#000",
+                weight: 1,
+                fillColor: getColor(p.pollutionIndex),
+                fillOpacity: 0.85
+            })
+            .addTo(map)
+            .bindPopup(`
+                <strong>${p.name}</strong><br>
+                Индекс загрязнения: ${p.pollutionIndex}
+            `);
+        });
+    }
+
+    function getColor(value) {
+        if (value <= 2.5) return "green";
+        if (value <= 5) return "yellow";
+        if (value <= 7.5) return "orange";
+        return "red";
+    }
+
+    loadData();
+</script>
+
+</body>
+</html>
+
